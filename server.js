@@ -22,8 +22,14 @@ if (fs.existsSync(subFile)) {
   fs.writeFileSync(subFile, '[]');
 }
 
-// Middleware
-app.use(cors());
+// 🔒 Middleware CORS - autorise uniquement ton domaine (à ajuster si besoin)
+app.use(cors({
+  origin: 'https://dashboard.skinora-market.com',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
+// Middleware JSON
 app.use(bodyParser.json());
 
 // Chargement des clés VAPID
@@ -38,7 +44,7 @@ webpush.setVapidDetails(
 app.post('/api/subscribe', (req, res) => {
   const subscription = req.body;
 
-  // Évite les doublons (en comparant endpoint)
+  // Évite les doublons
   const isAlreadySubscribed = subscriptions.some(sub => sub.endpoint === subscription.endpoint);
   if (!isAlreadySubscribed) {
     subscriptions.push(subscription);
@@ -69,7 +75,7 @@ app.post('/api/notify', async (req, res) => {
   res.json({ sent: results.length, details: results });
 });
 
-// Vérif de vie du serveur
+// Ping pour test de vie
 app.get('/ping', (req, res) => {
   res.send('OK');
 });
