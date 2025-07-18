@@ -7,11 +7,26 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
+const subFile = './subscriptions.json';
+let subscriptions = [];
+
+// Assure que le fichier existe
+if (fs.existsSync(subFile)) {
+  try {
+    subscriptions = JSON.parse(fs.readFileSync(subFile, 'utf-8'));
+  } catch (err) {
+    console.error("Erreur lecture subscriptions.json :", err);
+    subscriptions = [];
+  }
+} else {
+  fs.writeFileSync(subFile, '[]');
+}
+
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// Load VAPID keys
+// Chargement des clés VAPID
 const vapidKeys = JSON.parse(fs.readFileSync('./vapid.json', 'utf-8'));
 webpush.setVapidDetails(
   'mailto:admin@example.com',
@@ -19,22 +34,22 @@ webpush.setVapidDetails(
   vapidKeys.privateKey
 );
 
-// Load subscriptions
-let subscriptions = [];
-const subFile = './subscriptions.json';
-if (fs.existsSync(subFile)) {
-  subscriptions = JSON.parse(fs.readFileSync(subFile, 'utf-8'));
-}
-
-// Subscribe endpoint
+// Endpoint d'abonnement
 app.post('/api/subscribe', (req, res) => {
   const subscription = req.body;
-  subscriptions.push(subscription);
-  fs.writeFileSync(subFile, JSON.stringify(subscriptions, null, 2));
+
+  // Évite les doublons (en comparant endpoint)
+  const isAlreadySubscribed = subscriptions.some(sub => sub.endpoint === subscription.endpoint);
+  if (!isAlreadySubscribed) {
+    subscriptions.push(subscription);
+    fs.writeFileSync(subFile, JSON.stringify(subscriptions, null, 2));
+    console.log("✅ Subscription enregistrée :", subscription.endpoint);
+  }
+
   res.status(201).json({ message: 'Subscription added successfully.' });
 });
 
-// Notify endpoint
+// Endpoint d'envoi de notification
 app.post('/api/notify', async (req, res) => {
   const { title, body } = req.body;
   const payload = JSON.stringify({ title, body });
@@ -45,6 +60,8 @@ app.post('/api/notify', async (req, res) => {
       await webpush.sendNotification(sub, payload);
       results.push({ success: true });
     } catch (error) {
+      console.warn("❌ Échec d'envoi à :", sub.endpoint);
+      console.warn(error.message);
       results.push({ success: false, error: error.message });
     }
   }
@@ -52,8 +69,9 @@ app.post('/api/notify', async (req, res) => {
   res.json({ sent: results.length, details: results });
 });
 
+// Vérif de vie du serveur
 app.get('/ping', (req, res) => {
   res.send('OK');
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
