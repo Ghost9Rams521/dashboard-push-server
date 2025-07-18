@@ -3,15 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const webpush = require('web-push');
 const cors = require('cors');
-const morgan = require('morgan');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const subFile = path.join(__dirname, 'subscriptions.json');
 
 // --- UTILITAIRES & MIDDLEWARES ---
-// Logger HTTP
-app.use(morgan('dev'));
 // CORS, gère preflight aussi
 const corsOptions = {
   origin: 'https://dashboard.skinora-market.com',
